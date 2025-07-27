@@ -1,0 +1,55 @@
+syntax = "proto3";
+
+package keystone.v1.core;
+
+option go_package = "keystone/v1/core;corev1";
+option java_package = "com.keystone.v1.core";
+option java_multiple_files = true;
+option csharp_namespace = "Keystone.V1.Core";
+
+// Content-related messages
+
+enum KeystoneContentEncoding {
+  CONTENT_ENCODING_UNSPECIFIED = 0;
+  CONTENT_ENCODING_GZIP = 1;
+  CONTENT_ENCODING_BR = 2;
+}
+
+// Content descriptor for external content storage
+message KeystoneContentDescriptor {
+  // Full URI including scheme: "ipfs://QmXxx", "https://...", "arweave://..."
+  string uri = 1;
+  
+  // MIME type: "text/plain; charset=utf-8", "application/json", etc.
+  string content_type = 2;
+  
+  // Content size in bytes
+  int64 content_length = 3;
+  
+  // Optional content encoding: "gzip", "br", etc.
+  KeystoneContentEncoding content_encoding = 4;
+  
+  // Optional integrity check (e.g., SHA-256 hash)
+  bytes content_hash = 5;
+  
+  // Additional metadata specific to the content
+  map<string, string> metadata = 6;
+}
+
+// Multi-part message part for large content
+message KeystoneMultiPartMessagePart {
+  // Unique identifier for the complete multi-part message
+  string message_id = 1;
+  
+  // Part number (1-based indexing)
+  uint32 part_number = 2;
+  
+  // Total number of parts in this message
+  uint32 total_parts = 3;
+  
+  // Content bytes for this part
+  bytes content = 4;
+  
+  // SHA-256 hash of the complete reassembled message (hex string)
+  string complete_message_hash = 5;
+}

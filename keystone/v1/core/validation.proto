@@ -1,0 +1,167 @@
+syntax = "proto3";
+
+package keystone.v1.core;
+
+import "google/protobuf/descriptor.proto";
+
+option go_package = "keystone/v1/core;corev1";
+option java_package = "com.keystone.v1.core";
+option java_multiple_files = true;
+option csharp_namespace = "Keystone.V1.Core";
+
+// Field validation rules
+extend google.protobuf.FieldOptions {
+  // Validation rules for the field
+  KeystoneFieldValidation keystone_validate = 50000;
+}
+
+// Message-level validation rules
+extend google.protobuf.MessageOptions {
+  // Message validation rules
+  KeystoneMessageValidation keystone_message_validate = 50001;
+}
+
+message KeystoneFieldValidation {
+  // For string fields
+  KeystoneStringRules string = 1;
+  
+  // For bytes fields
+  KeystoneBytesRules bytes = 2;
+  
+  // For numeric fields
+  KeystoneNumericRules numeric = 3;
+  
+  // For repeated fields
+  KeystoneRepeatedRules repeated = 4;
+  
+  // Field is required (cannot be empty/zero)
+  bool required = 5;
+  
+  // Custom error message
+  string error_message = 6;
+  
+  // Security rules for this field
+  KeystoneSecurityRules security = 7;
+}
+
+// Security rules for sensitive fields
+message KeystoneSecurityRules {
+  // Field contains sensitive data
+  bool sensitive = 1;
+  
+  // Field should be encrypted at rest
+  bool encrypt_at_rest = 2;
+  
+  // Field should not be logged
+  bool no_log = 3;
+  
+  // Access control level
+  KeystoneAccessLevel access_level = 4;
+  
+  // Field should be redacted in error messages
+  bool redact_in_errors = 5;
+}
+
+enum KeystoneAccessLevel {
+  KEYSTONE_ACCESS_LEVEL_UNSPECIFIED = 0;
+  KEYSTONE_ACCESS_LEVEL_PUBLIC = 1;
+  KEYSTONE_ACCESS_LEVEL_AUTHENTICATED = 2;
+  KEYSTONE_ACCESS_LEVEL_OWNER_ONLY = 3;
+  KEYSTONE_ACCESS_LEVEL_ADMIN_ONLY = 4;
+}
+
+message KeystoneStringRules {
+  // Minimum length
+  uint32 min_len = 1;
+  
+  // Maximum length
+  uint32 max_len = 2;
+  
+  // Regex pattern
+  string pattern = 3;
+  
+  // Must be valid URI
+  bool uri = 4;
+  
+  // Must be valid UUID
+  bool uuid = 5;
+  
+  // Must be valid Ethereum address
+  bool eth_address = 6;
+  
+  // Must be valid XRPL address
+  bool xrpl_address = 7;
+  
+  // Predefined format
+  KeystoneStringFormat format = 8;
+  
+  // Field is required (cannot be empty)
+  bool required = 9;
+}
+
+enum KeystoneStringFormat {
+  KEYSTONE_STRING_FORMAT_UNSPECIFIED = 0;
+  KEYSTONE_STRING_FORMAT_EMAIL = 1;
+  KEYSTONE_STRING_FORMAT_HOSTNAME = 2;
+  KEYSTONE_STRING_FORMAT_IPV4 = 3;
+  KEYSTONE_STRING_FORMAT_IPV6 = 4;
+  KEYSTONE_STRING_FORMAT_URI = 5;
+  KEYSTONE_STRING_FORMAT_URI_REFERENCE = 6;
+}
+
+message KeystoneBytesRules {
+  // Exact length
+  uint32 len = 1;
+  
+  // Minimum length
+  uint32 min_len = 2;
+  
+  // Maximum length  
+  uint32 max_len = 3;
+  
+  // Must be valid SHA-256 hash (32 bytes)
+  bool sha256 = 4;
+  
+  // Must be valid SHA-512 hash (64 bytes)
+  bool sha512 = 5;
+  
+  // Field is required (cannot be empty)
+  bool required = 6;
+}
+
+message KeystoneNumericRules {
+  // For int32, int64, uint32, uint64
+  int64 min = 1;
+  int64 max = 2;
+  
+  // Value must be in this list
+  repeated int64 in = 3;
+  
+  // Value must not be in this list
+  repeated int64 not_in = 4;
+  
+  // Field is required (cannot be zero)
+  bool required = 5;
+}
+
+message KeystoneRepeatedRules {
+  // Minimum number of items
+  uint32 min_items = 1;
+  
+  // Maximum number of items
+  uint32 max_items = 2;
+  
+  // All items must be unique
+  bool unique = 3;
+}
+
+message KeystoneMessageValidation {
+  // At least one of these fields must be set
+  repeated string one_of = 1;
+  
+  // Exactly one of these fields must be set
+  repeated string exactly_one_of = 2;
+  
+  // All of these fields must be set together
+  repeated string all_of = 3;
+}

@@ -1,0 +1,78 @@
+syntax = "proto3";
+
+package keystone.v1.core;
+
+import "keystone/v1/core/validation.proto";
+
+option go_package = "keystone/v1/core;corev1";
+option java_package = "com.keystone.v1.core";
+option java_multiple_files = true;
+option csharp_namespace = "Keystone.V1.Core";
+
+// Access control related messages moved from envelope.proto
+
+// The type of key being granted in an AccessGrant.
+enum KeystoneKeyType {
+  KEY_TYPE_UNSPECIFIED = 0;
+  // The encrypted_key_material contains a Content Encryption Key (CEK),
+  // itself encrypted by a group_key.
+  CONTENT_KEY = 1;
+  // The encrypted_key_material contains a Group Key,
+  // itself encrypted by a user's public key.
+  GROUP_KEY = 2;
+}
+
+// Message to handle all key distribution.
+// This separates access control from the data structure.
+message KeystoneAccessGrant {
+  // Type of key being granted (CONTENT_KEY or GROUP_KEY)
+  KeystoneKeyType key_type = 1;
+
+  // For CONTENT_KEY: SHA-256 hash of the content it decrypts
+  // For GROUP_KEY: UUID or identifier of the group the key belongs to
+  // Using string to support both hash (hex) and UUID formats
+  string target_id = 2;
+
+  // The actual encrypted key material:
+  // - For CONTENT_KEY: CEK encrypted with the group's key
+  // - For GROUP_KEY: Group key encrypted with recipient's public key
+  bytes encrypted_key_material = 3 [(keystone_validate).security = {
+    sensitive: true
+    no_log: true
+    redact_in_errors: true
+    access_level: KEYSTONE_ACCESS_LEVEL_OWNER_ONLY
+  }];
+}
+
+// Type of relationship to referenced content
+enum KeystoneContextReferenceType {
+  CONTEXT_REFERENCE_TYPE_UNSPECIFIED = 0;
+  // This content is a reply to the referenced content
+  CONTEXT_REFERENCE_TYPE_REPLY_TO = 1;
+  // This content extends/builds upon the referenced content
+  CONTEXT_REFERENCE_TYPE_EXTENDS = 2;
+  // This content supersedes/replaces the referenced content
+  CONTEXT_REFERENCE_TYPE_SUPERSEDES = 3;
+  // This content references for general context
+  CONTEXT_REFERENCE_TYPE_REFERENCES = 4;
+  // This content is a succession record of the referenced content
+  CONTEXT_REFERENCE_TYPE_SUCCESSION = 5;
+}
+
+// A reference to another piece of content. It contains no key material.
+// It links content to an access control group and defines relationships.
+message KeystoneContextReference {
+  // SHA-256 hash of the referenced document content
+  bytes content_hash = 1;
+
+  // Identifier for the access control group this content belongs to.
+  // Tells the client which group_key is needed to decrypt this content's CEK.
+  // Format: UUID or application-defined identifier
+  string group_id = 2;
+  
+  // Type of relationship to the referenced content
+  KeystoneContextReferenceType reference_type = 3;
+  
+  // Optional human-readable annotation about the relationship
+  string annotation = 4;
+}

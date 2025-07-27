@@ -1,0 +1,90 @@
+syntax = "proto3";
+
+package keystone.v1.core;
+
+import "a2a/a2a.proto";
+import "keystone/v1/core/access.proto";
+import "keystone/v1/core/content.proto";
+import "keystone/v1/core/validation.proto";
+
+option go_package = "keystone/v1/core;corev1";
+option java_package = "com.keystone.v1.core";
+option java_multiple_files = true;
+option csharp_namespace = "Keystone.V1.Core";
+
+// Top-level envelope - stored unencrypted in XRPL memo
+// SECURITY: This message is public. Do not include sensitive data.
+// All sensitive content must be encrypted in the 'message' field.
+message KeystoneEnvelope {
+  // Protocol version for forward compatibility
+  uint32 version = 1 [(keystone_validate).numeric = {
+    min: 1
+    max: 100
+  }];
+  
+  // SHA-256 hash of the message content for integrity verification
+  bytes content_hash = 2 [(keystone_validate).bytes = {
+    sha256: true
+    required: true
+  }];
+  
+  // Type of message contained in this envelope
+  KeystoneMessageType message_type = 3;
+  
+  // Encryption mode used for the message content
+  KeystoneEncryptionMode encryption = 4;
+
+  // Public references, visible for discovery. These have no key material.
+  // Use reference_type to indicate relationships (reply_to, extends, etc.)
+  repeated KeystoneContextReference public_references = 5;
+
+  // Encrypted key material required to decrypt the main message payload
+  // and any private context references it contains.
+  repeated KeystoneAccessGrant access_grants = 6;
+
+  // Actual message content (may be encrypted based on encryption mode)
+  bytes message = 7;
+
+  // Additional metadata for extensibility (e.g., timestamps, routing hints)
+  map<string, string> metadata = 8;
+}
+
+// Core message for agent-to-agent communication.
+// This message is what gets encrypted and placed in KeystoneEnvelope.message.
+message KeystoneCoreMessage {
+  KeystoneContentDescriptor content_descriptor = 1;
+
+  // Private context references, revealed only after decrypting this KeystoneCoreMessage.
+  repeated KeystoneContextReference context_references = 2;
+
+  map<string, string> metadata = 3;
+}
+
+// Supported message types.
+enum KeystoneMessageType {
+  MESSAGE_TYPE_UNSPECIFIED = 0;
+  MESSAGE_TYPE_CORE = 1;
+  MESSAGE_TYPE_MULTIPART_PART = 2;
+}
+
+// Encryption modes supported.
+enum KeystoneEncryptionMode {
+  ENCRYPTION_MODE_UNSPECIFIED = 0;
+  ENCRYPTION_MODE_NONE = 1;
+  ENCRYPTION_MODE_PROTECTED = 2;
+  ENCRYPTION_MODE_PUBLIC_KEY = 3;
+}
+message KeystoneEnvelopePayload {
+  KeystoneEnvelope envelope = 1;
+  
+  // Content descriptor for external content (replaces content_address)
+  KeystoneContentDescriptor content = 2;
+  
+  map<string, string> keystone_metadata = 3;
+}
+
+message KeystoneA2AMessage {
+  a2a.v1.Message a2a_message = 1;
+  KeystoneEnvelopePayload keystone_payload = 2;
+  map<string, string> integration_metadata = 3;
+}
