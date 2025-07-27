@@ -1,0 +1,152 @@
+syntax = "proto3";
+
+package keystone.v1.registry;
+
+import "a2a/a2a.proto";
+import "google/protobuf/empty.proto";
+import "google/api/annotations.proto";
+import "keystone/v1/core/envelope.proto";
+import "keystone/v1/core/validation.proto";
+
+option go_package = "keystone/v1/registry;registryv1";
+option java_package = "com.keystone.v1.registry";
+option java_multiple_files = true;
+option csharp_namespace = "Keystone.V1.Registry";
+
+enum PublicKeyAlgorithm {
+  PUBLIC_KEY_ALGORITHM_UNSPECIFIED = 0;
+  PUBLIC_KEY_ALGORITHM_CURVE25519 = 1;
+  PUBLIC_KEY_ALGORITHM_ED25519 = 2;
+}
+
+// A2A Integration messages are structurally sound and do not require changes.
+// Their behavior is determined by how the above messages are used.
+message KeystoneAgentCapabilities {
+  // Supports Keystone envelope processing
+  bool envelope_processing = 1;
+
+  // Supports ledger persistence
+  bool ledger_persistence = 2;
+
+  // Supports selective disclosure context DAG traversal
+  bool context_dag_traversal = 3;
+
+  // Maximum context DAG depth supported
+  uint32 max_context_depth = 4;
+
+  // Supported encryption modes
+  repeated keystone.v1.core.KeystoneEncryptionMode supported_encryption_modes = 5;
+
+  // The user's public key for encryption (e.g., a Curve25519 key for libsodium).
+  // This is the key others will use to encrypt messages and group_keys for this user.
+  bytes public_encryption_key = 6 [(keystone.v1.core.keystone_validate).bytes = {
+    len: 32  // Curve25519 public keys are exactly 32 bytes
+  }];
+
+  // The algorithm used for the public_encryption_key.
+  // E.g., "curve25519"
+  PublicKeyAlgorithm public_key_algorithm = 7;
+
+  // A list of URIs defining the semantic tasks or services this agent offers.
+  // Example: "https://schemas.postfiat.org/tasks/text-summarization/v1"
+  repeated string supported_semantic_capabilities = 8;
+  
+  // EAS attestation UIDs for reputation/credentials
+  // Example: "0x1234..." (onchain attestation UID)
+  repeated string attestation_uids = 9;
+  
+  // Identity attestations (e.g., "github:username", "ens:name.eth")
+  map<string, string> identity_attestations = 10;
+}
+
+// Keystone Agent Registry Service
+service KeystoneAgentRegistryService {
+  // Get agent card (A2A compliant)
+  rpc GetAgentCard(KeystoneAgentRegistryServiceGetAgentCardRequest) returns (KeystoneAgentRegistryServiceGetAgentCardResponse) {
+    option (google.api.http) = {
+      get: "/v1/agents/card"
+    };
+  }
+  
+  // Store agent card with Keystone capabilities
+  rpc StoreAgentCard(KeystoneStoreAgentCardRequest) returns (KeystoneStoreAgentCardResponse) {
+    option (google.api.http) = {
+      post: "/v1/agents"
+      body: "*"
+    };
+  }
+  
+  // Search agents by capabilities, name, etc.
+  rpc SearchAgents(KeystoneSearchAgentsRequest) returns (KeystoneSearchAgentsResponse) {
+    option (google.api.http) = {
+      get: "/v1/agents/search"
+    };
+  }
+  
+  // Delete agent card
+  rpc DeleteAgentCard(KeystoneDeleteAgentCardRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      delete: "/v1/agents/{agent_id}"
+    };
+  }
+  
+  // Get agent by envelope sender
+  rpc GetAgentByEnvelope(KeystoneGetAgentByEnvelopeRequest) returns (KeystoneGetAgentByEnvelopeResponse) {
+    option (google.api.http) = {
+      post: "/v1/agents/by-envelope"
+      body: "*"
+    };
+  }
+}
+
+// Agent Registry Messages
+message KeystoneStoreAgentCardRequest {
+  a2a.v1.AgentCard agent_card = 1;
+  KeystoneAgentCapabilities keystone_capabilities = 2;
+  string agent_id = 3;  // Optional - if not provided, will be generated
+}
+
+message KeystoneSearchAgentsRequest {
+  string query = 1;  // Search query
+  repeated string capabilities = 2;  // Filter by capabilities
+  string organization = 3;  // Filter by organization
+  int32 limit = 4;  // Maximum results
+  int32 offset = 5;  // Pagination offset
+}
+
+message KeystoneSearchAgentsResponse {
+  repeated KeystoneAgentSearchResult results = 1;
+  int32 total_count = 2;
+}
+
+message KeystoneAgentSearchResult {
+  string agent_id = 1;
+  a2a.v1.AgentCard agent_card = 2;
+  KeystoneAgentCapabilities keystone_capabilities = 3;
+  float relevance_score = 4;
+}
+
+message KeystoneDeleteAgentCardRequest {
+  string agent_id = 1;
+}
+
+message KeystoneGetAgentByEnvelopeRequest {
+  keystone.v1.core.KeystoneEnvelope envelope = 1;
+}
+
+// Request/Response message types for proper gRPC service compliance
+message KeystoneAgentRegistryServiceGetAgentCardRequest {
+  string agent_id = 1;
+}
+
+message KeystoneAgentRegistryServiceGetAgentCardResponse {
+  a2a.v1.AgentCard agent_card = 1;
+}
+
+message KeystoneStoreAgentCardResponse {
+  a2a.v1.AgentCard agent_card = 1;
+}
+
+message KeystoneGetAgentByEnvelopeResponse {
+  a2a.v1.AgentCard agent_card = 1;
+}

@@ -1,0 +1,253 @@
+syntax = "proto3";
+
+package keystone.v1.storage;
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+import "google/api/annotations.proto";
+import "keystone/v1/core/envelope.proto";
+import "keystone/v1/core/content.proto";
+import "keystone/v1/core/validation.proto";
+
+option go_package = "keystone/v1/storage;storagev1";
+option java_package = "com.keystone.v1.storage";
+option java_multiple_files = true;
+option csharp_namespace = "Keystone.V1.Storage";
+
+enum KeystoneStorageBackend {
+  STORAGE_BACKEND_UNSPECIFIED = 0;
+  STORAGE_BACKEND_INLINE = 1;
+  STORAGE_BACKEND_IPFS = 2;
+  STORAGE_BACKEND_ARWEAVE = 3;
+  STORAGE_BACKEND_EVM_CALLDATA = 4;
+  STORAGE_BACKEND_XRPL_MEMO = 5;
+}
+
+// Keystone Content Storage Service
+service KeystoneContentStorageService {
+  // Store content and return descriptor
+  rpc StoreContent(KeystoneStoreContentRequest) returns (KeystoneStoreContentResponse) {
+    option (google.api.http) = {
+      post: "/v1/content"
+      body: "*"
+    };
+  }
+  
+  // Retrieve content by descriptor
+  rpc RetrieveContent(KeystoneRetrieveContentRequest) returns (KeystoneRetrieveContentResponse) {
+    option (google.api.http) = {
+      post: "/v1/content:retrieve"
+      body: "*"
+    };
+  }
+  
+  // Delete content
+  rpc DeleteContent(KeystoneDeleteContentRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      delete: "/v1/content/{content_id}"
+    };
+  }
+  
+  // Check if storage can handle URI
+  rpc CanHandleUri(KeystoneCanHandleUriRequest) returns (KeystoneCanHandleUriResponse) {
+    option (google.api.http) = {
+      get: "/v1/content/can-handle"
+    };
+  }
+}
+
+// Keystone Envelope Storage Service
+service KeystoneEnvelopeStorageService {
+  // Store envelope
+  rpc StoreEnvelope(KeystoneStoreEnvelopeRequest) returns (KeystoneStoreEnvelopeResponse) {
+    option (google.api.http) = {
+      post: "/v1/envelopes"
+      body: "*"
+    };
+  }
+  
+  // Retrieve envelope by ID
+  rpc RetrieveEnvelope(KeystoneRetrieveEnvelopeRequest) returns (KeystoneRetrieveEnvelopeResponse) {
+    option (google.api.http) = {
+      get: "/v1/envelopes/{envelope_id}"
+    };
+  }
+  
+  // Search envelopes
+  rpc SearchEnvelopes(KeystoneSearchEnvelopesRequest) returns (KeystoneSearchEnvelopesResponse) {
+    option (google.api.http) = {
+      get: "/v1/envelopes/search"
+    };
+  }
+  
+  // Delete envelope
+  rpc DeleteEnvelope(KeystoneDeleteEnvelopeRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      delete: "/v1/envelopes/{envelope_id}"
+    };
+  }
+  
+  // Check if envelope exists
+  rpc EnvelopeExists(KeystoneEnvelopeExistsRequest) returns (KeystoneEnvelopeExistsResponse) {
+    option (google.api.http) = {
+      get: "/v1/envelopes/{envelope_id}/exists"
+    };
+  }
+  
+  // Find envelopes by content hash
+  rpc FindEnvelopesByContentHash(KeystoneFindEnvelopesByContentHashRequest) 
+      returns (KeystoneFindEnvelopesByContentHashResponse) {
+    option (google.api.http) = {
+      post: "/v1/envelopes/by-content-hash"
+      body: "*"
+    };
+  }
+  
+  // Find envelopes by context
+  rpc FindEnvelopesByContext(KeystoneFindEnvelopesByContextRequest) 
+      returns (KeystoneFindEnvelopesByContextResponse) {
+    option (google.api.http) = {
+      post: "/v1/envelopes/by-context"
+      body: "*"
+    };
+  }
+  
+  // List envelopes by sender
+  rpc ListEnvelopesBySender(KeystoneListEnvelopesBySenderRequest) 
+      returns (KeystoneListEnvelopesBySenderResponse) {
+    option (google.api.http) = {
+      get: "/v1/envelopes/by-sender/{sender}"
+    };
+  }
+}
+
+// Content Storage Messages
+message KeystoneStoreContentRequest {
+  // Content to store
+  bytes content = 1 [(keystone.v1.core.keystone_validate).bytes = {
+    min_len: 1
+    max_len: 1073741824  // 1GB limit
+    required: true
+  }];
+  
+  // MIME type of the content
+  string content_type = 2 [(keystone.v1.core.keystone_validate).string = {
+    pattern: "^[a-zA-Z0-9][a-zA-Z0-9!#$&\\-\\^_+./]*$"
+    required: true
+  }];
+  
+  // Preferred storage backend
+  KeystoneStorageBackend preferred_storage = 3;
+}
+
+message KeystoneRetrieveContentRequest {
+  keystone.v1.core.KeystoneContentDescriptor descriptor = 1;
+}
+
+message KeystoneDeleteContentRequest {
+  string content_id = 1;
+}
+
+message KeystoneCanHandleUriRequest {
+  string uri = 1;
+}
+
+message KeystoneCanHandleUriResponse {
+  bool can_handle = 1;
+  KeystoneStorageBackend storage_provider = 2;
+}
+
+// Envelope Storage Messages
+message KeystoneStoreEnvelopeRequest {
+  keystone.v1.core.KeystoneEnvelope envelope = 1;
+  KeystoneStorageBackend preferred_storage = 2;
+}
+
+message KeystoneStoreEnvelopeResponse {
+  string envelope_id = 1;
+  KeystoneStorageBackend storage_backend = 2;
+  map<string, string> metadata = 3;
+}
+
+message KeystoneRetrieveEnvelopeRequest {
+  string envelope_id = 1;
+}
+
+message KeystoneSearchEnvelopesRequest {
+  string query = 1;
+  keystone.v1.core.KeystoneMessageType message_type = 2;
+  keystone.v1.core.KeystoneEncryptionMode encryption_mode = 3;
+  string sender = 4;
+  google.protobuf.Timestamp start_time = 5;
+  google.protobuf.Timestamp end_time = 6;
+  int32 limit = 7;
+  int32 offset = 8;
+}
+
+message KeystoneSearchEnvelopesResponse {
+  repeated KeystoneEnvelopeSearchResult results = 1;
+  int32 total_count = 2;
+}
+
+message KeystoneEnvelopeSearchResult {
+  string envelope_id = 1;
+  keystone.v1.core.KeystoneEnvelope envelope = 2;
+  KeystoneStorageBackend storage_backend = 3;
+  float relevance_score = 4;
+}
+
+message KeystoneDeleteEnvelopeRequest {
+  string envelope_id = 1;
+}
+
+message KeystoneEnvelopeExistsRequest {
+  string envelope_id = 1;
+}
+
+message KeystoneEnvelopeExistsResponse {
+  bool exists = 1;
+  KeystoneStorageBackend storage_backend = 2;
+}
+
+message KeystoneFindEnvelopesByContentHashRequest {
+  bytes content_hash = 1;
+  int32 limit = 2;
+}
+
+message KeystoneFindEnvelopesByContentHashResponse {
+  repeated keystone.v1.core.KeystoneEnvelope envelopes = 1;
+}
+
+message KeystoneFindEnvelopesByContextRequest {
+  bytes context_hash = 1;
+  int32 limit = 2;
+}
+
+message KeystoneFindEnvelopesByContextResponse {
+  repeated keystone.v1.core.KeystoneEnvelope envelopes = 1;
+}
+
+message KeystoneListEnvelopesBySenderRequest {
+  string sender = 1;
+  int32 limit = 2;
+  int32 offset = 3;
+}
+
+message KeystoneListEnvelopesBySenderResponse {
+  repeated keystone.v1.core.KeystoneEnvelope envelopes = 1;
+  int32 total_count = 2;
+}
+
+message KeystoneStoreContentResponse {
+  keystone.v1.core.KeystoneContentDescriptor descriptor = 1;
+}
+
+message KeystoneRetrieveContentResponse {
+  bytes content = 1;
+  string content_type = 2;
+  int64 content_length = 3;
+}
+
+message KeystoneRetrieveEnvelopeResponse {
+  keystone.v1.core.KeystoneEnvelope envelope = 1;
+} 
